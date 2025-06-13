@@ -63,7 +63,8 @@ public class BatchConfiguration {
                 .build();
     }
 
-    @Bean
+    //https://github.com/spring-projects/spring-batch/issues/3801
+    @Bean(destroyMethod = "")
     ItemWriter<String> encryptItemWriter() throws IOException {
         final var outputStream = new S3GpgEncryptedOutputStream(s3Client(),
                 "prova_stream_s3", "prova.csv.gpg");
