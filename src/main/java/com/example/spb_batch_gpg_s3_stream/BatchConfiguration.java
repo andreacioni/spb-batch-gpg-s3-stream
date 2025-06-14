@@ -32,32 +32,32 @@ public class BatchConfiguration {
     }
 
     @Bean
-    ItemReader<String> decryptItemReader() throws IOException {
+    ItemReader<String> downloadItemReader() throws IOException {
         final var inputStreamResource = new InputStreamResource(
-                new S3GpgEncryptedInputStream(s3Client(),
+                new S3InputStream(s3Client(),
                         "prova_stream_s3",
-                        "prova.csv.gpg"));
+                        "prova.csv"));
 
         return new FlatFileItemReaderBuilder<String>()
-                .name("decryptItemReader")
+                .name("downloadItemReader")
                 .resource(inputStreamResource)
                 .lineMapper(new PassThroughLineMapper(  ))
                 .build();
     }
 
     @Bean
-    ItemReader<String> encryptItemReader() {
+    ItemReader<String> flatFileItemReader() {
         return new FlatFileItemReaderBuilder<String>()
-                .name("encryptItemReader")
+                .name("flatFileItemReader")
                 .resource(new FileSystemResource("src/main/resources/prova.csv"))
                 .lineMapper(new PassThroughLineMapper(  ))
                 .build();
     }
 
     @Bean
-    ItemWriter<String> decryptItemWriter() {
+    ItemWriter<String> flatFileItemWriter() {
         return new FlatFileItemWriterBuilder<String>()
-                .name("decryptItemWriter")
+                .name("flatFileItemWriter")
                 .resource(new FileSystemResource("src/main/resources/prova.csv"))
                 .lineAggregator(new PassThroughLineAggregator<>())
                 .build();
@@ -65,45 +65,45 @@ public class BatchConfiguration {
 
     //https://github.com/spring-projects/spring-batch/issues/3801
     @Bean(destroyMethod = "")
-    ItemWriter<String> encryptItemWriter() throws IOException {
-        final var outputStream = new S3GpgEncryptedOutputStream(s3Client(),
-                "prova_stream_s3", "prova.csv.gpg");
+    ItemWriter<String> uploadItemWriter() throws IOException {
+        final var outputStream = new S3OutputStream(s3Client(),
+                "prova_stream_s3", "prova.csv");
         return new OutputStreamItemWriter(outputStream);
     }
 
     @Bean
-    Job decryptJob(JobRepository jobRepository, Step decryptStep) {
-        return new JobBuilder("decryptJob", jobRepository)
-                .start(decryptStep)
+    Job downloadJob(JobRepository jobRepository, Step downloadStep) {
+        return new JobBuilder("downloadJob", jobRepository)
+                .start(downloadStep)
                 .build();
     }
 
     @Bean
-    Job encryptJob(JobRepository jobRepository, Step encryptStep) {
-        return new JobBuilder("encryptJob", jobRepository)
-                .start(encryptStep)
+    Job uploadJob(JobRepository jobRepository, Step uploadStep) {
+        return new JobBuilder("uploadJob", jobRepository)
+                .start(uploadStep)
                 .build();
     }
 
     @Bean
-    Step decryptStep(JobRepository jobRepository,
+    Step downloadStep(JobRepository jobRepository,
                            PlatformTransactionManager transactionManager) throws IOException {
-        return new StepBuilder("decryptStep", jobRepository)
+        return new StepBuilder("downloadStep", jobRepository)
                 .<String, String>chunk(10, transactionManager)
-                .reader(decryptItemReader())
+                .reader(downloadItemReader())
                 .processor(new ItemProcessor())
-                .writer(decryptItemWriter())
+                .writer(flatFileItemWriter())
                 .build();
     }
 
     @Bean
-    Step encryptStep(JobRepository jobRepository,
+    Step uploadStep(JobRepository jobRepository,
                      PlatformTransactionManager transactionManager) throws IOException {
-        return new StepBuilder("encryptStep", jobRepository)
+        return new StepBuilder("uploadStep", jobRepository)
                 .<String, String>chunk(10, transactionManager)
-                .reader(encryptItemReader())
+                .reader(flatFileItemReader())
                 .processor(new ItemProcessor())
-                .writer(encryptItemWriter())
+                .writer(uploadItemWriter())
                 .build();
     }
 }
